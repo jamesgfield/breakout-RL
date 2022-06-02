@@ -8,4 +8,6 @@ for _ in range(10000):
 
     if done:
         observation, info = env.reset(return_info=True)
+    print("hello there")
+
 env.close()
