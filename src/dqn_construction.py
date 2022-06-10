@@ -17,6 +17,11 @@ import torch.optim as optim
 import torch.nn.functional as F
 import torchvision.transforms as T
 
+import glob
+from gym.wrappers.monitoring import video_recorder
+from torch.distributions import Categorical
+import io
+
 
 ############## environment ################
 
@@ -80,12 +85,14 @@ class DQN(nn.Module):
     # Called with either one element to determine next action, or a batch
     # during optimization. Returns tensor([[left0exp,right0exp]...]).
     def forward(self, x):
+        # print(f'\n{x.size(dim=3)}\n')
         x = x.to(device)
         x = F.relu(self.bn1(self.conv1(x)))
         x = F.relu(self.bn2(self.conv2(x)))
         x = F.relu(self.bn3(self.conv3(x)))
         return self.head(x.view(x.size(0), -1))
-
+        # dim=1 returns 3, dim=2 returns 40, dim=3 returns 90
+        # IndexError: Dimension out of range (expected to be in range of [-4, 3], but got 4)
 
 ############ input extraction #############
 
@@ -258,7 +265,7 @@ def optimize_model():
 
 ########## main training loop #############
 
-num_episodes = 50 # set to 300+ for meaningful duration improvements
+num_episodes = 3 # set to 300+ for meaningful duration improvements
 for i_episode in range(num_episodes):
     # Initialize the environment and state
     env.reset()
@@ -296,10 +303,41 @@ for i_episode in range(num_episodes):
         target_net.load_state_dict(policy_net.state_dict())
 
 print('Complete')
-env.render()
-env.close()
-plt.ioff()
-plt.show()
+# env.render()
+# env.close()
+# plt.ioff()
+# plt.show()
+
+def show_video(env_name):
+    mp4list = glob.glob('video/*.mp4')
+    if len(mp4list) > 0:
+        mp4 = 'video/{}.mp4'.format(env_name)
+        video = io.open(mp4, 'r+b').read()
+        encoded = base64.b64encode(video)
+        display.display(HTML(data='''<video alt="test" autoplay 
+                loop controls style="height: 400px;">
+                <source src="data:video/mp4;base64,{0}" type="video/mp4" />
+             </video>'''.format(encoded.decode('ascii'))))
+    else:
+        print("Could not find video")
+        
+def show_video_of_model(policy, env_name):
+    env = gym.make(env_name)
+    vid = video_recorder.VideoRecorder(env, path="video/{}.mp4".format(env_name))
+    state = env.reset()
+    done = False
+    for t in range(1000):
+        vid.capture_frame()
+        action, _ = policy.act(state)
+        next_state, reward, done, _ = env.step(action)
+        state = next_state
+        if done:
+            break
+    vid.close()
+    env.close()
+
+# show_video_of_model(target_net, 'CartPole-v1')
+show_video('CartPole-v1')
 
 
 ###########################################
