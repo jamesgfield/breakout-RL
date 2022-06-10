@@ -1,5 +1,6 @@
 
 ################ imports ##################
+import glob
 
 import gym
 import math
@@ -16,6 +17,14 @@ import torch.nn as nn
 import torch.optim as optim
 import torch.nn.functional as F
 import torchvision.transforms as T
+
+import base64, io
+from gym.wrappers.monitoring import video_recorder
+from IPython.display import HTML
+from IPython import display
+
+import os
+os.environ["IMAGEIO_FFMPEG_EXE"] = "/opt/homebrew/bin/ffmpeg"
 
 
 ############## environment ################
@@ -258,7 +267,7 @@ def optimize_model():
 
 ########## main training loop #############
 
-num_episodes = 50 # set to 300+ for meaningful duration improvements
+num_episodes = 1 # set to 300+ for meaningful duration improvements
 for i_episode in range(num_episodes):
     # Initialize the environment and state
     env.reset()
@@ -295,11 +304,67 @@ for i_episode in range(num_episodes):
     if i_episode % TARGET_UPDATE == 0:
         target_net.load_state_dict(policy_net.state_dict())
 
-print('Complete')
-env.render()
-env.close()
-plt.ioff()
-plt.show()
+
+#### model shit
+
+
+def show_video(env_name):
+    mp4list = glob.glob('video/*.mp4')
+    if len(mp4list) > 0:
+        mp4 = 'video/{}.mp4'.format(env_name)
+        video = io.open(mp4, 'r+b').read()
+        encoded = base64.b64encode(video)
+        display.display(HTML(data='''<video alt="test" autoplay 
+                loop controls style="height: 400px;">
+                <source src="data:video/mp4;base64,{0}" type="video/mp4" />
+             </video>'''.format(encoded.decode('ascii'))))
+    else:
+        print("Could not find video")
+
+# play back a game of cartpole
+def show_video_of_model(env_name):
+    env = gym.make(env_name)
+    # vid = video_recorder.VideoRecorder(env, path="video/{}.mp4".format(env_name))
+    env.reset()
+    last_screen = get_screen()
+    current_screen = get_screen()
+    state = current_screen - last_screen
+    done = False
+    for t in range(1000):
+        # vid.capture_frame()
+        # action, _ = policy.act(state)
+
+        action = select_action(state)
+
+        with torch.no_grad():
+            # t.max(1) will return largest column value of each row.
+            # second column on max result is index of where max element was
+            # found, so we pick action with the larger expected reward.
+            action = policy_net(state).max(1)[1].view(1, 1)
+        # with torch.no_grad():
+            # action = target_net(state).max(1)[1].view(1, 1) # get a value of left, right or nothing (action to perform)
+
+
+        next_state, reward, done, _ = env.step(action.item())  # we should move cartpole Left, right OR nothing
+        state = next_state
+        if done:
+            break
+    # vid.close()
+    env.close()
+
+# how it should find an action
+# action =
+
+show_video_of_model('CartPole-v1')
+
+##############
+
+
+# print('Complete')
+# env.render()
+# env.close()
+# plt.ioff()
+# plt.show()
 
 
 ###########################################
