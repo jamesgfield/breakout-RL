@@ -21,7 +21,7 @@ import torchvision.transforms as T
 import base64, io
 from gym.wrappers.monitoring import video_recorder
 from IPython.display import HTML
-from IPython import display
+from tqdm import tqdm
 
 import os
 os.environ["IMAGEIO_FFMPEG_EXE"] = "/opt/homebrew/bin/ffmpeg"
@@ -137,15 +137,17 @@ def get_screen():
     return resize(screen).unsqueeze(0)
 
 
-env.reset()
-plt.figure()
-plt.imshow(get_screen().cpu().squeeze(0).permute(1, 2, 0).numpy(),
-           interpolation='none')
-plt.title('Example extracted screen')
-plt.show()
 
-# notes: i think my venv doesn't work because i just created that folder 'venvs'
-# i didn't pip install venv which makes a proper virtualenv directory for virtual environments...
+def exampleScreen():
+    env.reset()
+    plt.figure()
+    plt.imshow(get_screen().cpu().squeeze(0).permute(1, 2, 0).numpy(),
+               interpolation='none')
+    plt.title('Example extracted screen')
+    plt.show()
+
+# exampleScreen()
+
 
 
 ####### hyperparameters & utilities #######
@@ -267,8 +269,8 @@ def optimize_model():
 
 ########## main training loop #############
 
-num_episodes = 350 # set to 300+ for meaningful duration improvements
-for i_episode in range(num_episodes):
+num_episodes = 1000 # set to 300+ for meaningful duration improvements
+for i_episode in tqdm(range(num_episodes)):
     # Initialize the environment and state
     env.reset()
     last_screen = get_screen()
@@ -298,7 +300,7 @@ for i_episode in range(num_episodes):
         optimize_model()
         if done:
             episode_durations.append(t + 1)
-            plot_durations()
+            # plot_durations()
             break
     # Update the target network, copying all weights and biases in DQN
     if i_episode % TARGET_UPDATE == 0:
@@ -354,7 +356,7 @@ show_video_of_model('CartPole-v1')
 # Below should play back the video
 # show_video('CartPole-v1')
 
-##############
+###########################################
 
 
 # print('Complete')
@@ -366,4 +368,4 @@ show_video_of_model('CartPole-v1')
 
 ###########################################
 
-print('\nFinished & Exited :)\n')
+print('\nFinished & Exited\n')
