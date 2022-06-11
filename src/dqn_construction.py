@@ -1,31 +1,28 @@
-
 ################ imports ##################
+import base64
 import glob
-
-import gym
+import io
 import math
+import os
 import random
-import numpy as np
-import matplotlib
-import matplotlib.pyplot as plt
 from collections import namedtuple, deque
 from itertools import count
-from PIL import Image
 
+import gym
+import matplotlib
+import matplotlib.pyplot as plt
+import numpy as np
 import torch
 import torch.nn as nn
-import torch.optim as optim
 import torch.nn.functional as F
+import torch.optim as optim
 import torchvision.transforms as T
-
-import base64, io
-from gym.wrappers.monitoring import video_recorder
 from IPython.display import HTML
+from PIL import Image
+from gym.wrappers.monitoring import video_recorder
 from tqdm import tqdm
 
-import os
 os.environ["IMAGEIO_FFMPEG_EXE"] = "/opt/homebrew/bin/ffmpeg"
-
 
 ############## environment ################
 
@@ -41,7 +38,6 @@ plt.ion()
 # if gpu is to be used
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
-
 ############# replay memory ###############
 
 Transition = namedtuple('Transition',
@@ -51,7 +47,7 @@ Transition = namedtuple('Transition',
 class ReplayMemory(object):
 
     def __init__(self, capacity):
-        self.memory = deque([],maxlen=capacity)
+        self.memory = deque([], maxlen=capacity)
 
     def push(self, *args):
         """Save a transition"""
@@ -79,8 +75,9 @@ class DQN(nn.Module):
 
         # Number of Linear input connections depends on output of conv2d layers
         # and therefore the input image size, so compute it.
-        def conv2d_size_out(size, kernel_size = 5, stride = 2):
-            return (size - (kernel_size - 1) - 1) // stride  + 1
+        def conv2d_size_out(size, kernel_size=5, stride=2):
+            return (size - (kernel_size - 1) - 1) // stride + 1
+
         convw = conv2d_size_out(conv2d_size_out(conv2d_size_out(w)))
         convh = conv2d_size_out(conv2d_size_out(conv2d_size_out(h)))
         linear_input_size = convw * convh * 32
@@ -108,6 +105,7 @@ def get_cart_location(screen_width):
     scale = screen_width / world_width
     return int(env.state[0] * scale + screen_width / 2.0)  # MIDDLE OF CART
 
+
 # AttributeError: 'AtariEnv' object has no attribute 'x_threshold'
 
 
@@ -117,7 +115,7 @@ def get_screen():
     screen = env.render(mode='rgb_array').transpose((2, 0, 1))
     # Cart is in the lower half, so strip off the top and bottom of the screen
     _, screen_height, screen_width = screen.shape
-    screen = screen[:, int(screen_height*0.4):int(screen_height * 0.8)]
+    screen = screen[:, int(screen_height * 0.4):int(screen_height * 0.8)]
     view_width = int(screen_width * 0.6)
     cart_location = get_cart_location(screen_width)
     if cart_location < view_width // 2:
@@ -137,7 +135,6 @@ def get_screen():
     return resize(screen).unsqueeze(0)
 
 
-
 def exampleScreen():
     env.reset()
     plt.figure()
@@ -146,8 +143,8 @@ def exampleScreen():
     plt.title('Example extracted screen')
     plt.show()
 
-# exampleScreen()
 
+# exampleScreen()
 
 
 ####### hyperparameters & utilities #######
@@ -176,7 +173,6 @@ target_net.eval()
 optimizer = optim.RMSprop(policy_net.parameters())
 memory = ReplayMemory(10000)
 
-
 steps_done = 0
 
 
@@ -184,7 +180,7 @@ def select_action(state):
     global steps_done
     sample = random.random()
     eps_threshold = EPS_END + (EPS_START - EPS_END) * \
-        math.exp(-1. * steps_done / EPS_DECAY)
+                    math.exp(-1. * steps_done / EPS_DECAY)
     steps_done += 1
     if sample > eps_threshold:
         with torch.no_grad():
@@ -233,9 +229,9 @@ def optimize_model():
     # Compute a mask of non-final states and concatenate the batch elements
     # (a final state would've been the one after which simulation ended)
     non_final_mask = torch.tensor(tuple(map(lambda s: s is not None,
-                                          batch.next_state)), device=device, dtype=torch.bool)
+                                            batch.next_state)), device=device, dtype=torch.bool)
     non_final_next_states = torch.cat([s for s in batch.next_state
-                                                if s is not None])
+                                       if s is not None])
     state_batch = torch.cat(batch.state)
     action_batch = torch.cat(batch.action)
     reward_batch = torch.cat(batch.reward)
@@ -269,7 +265,7 @@ def optimize_model():
 
 ########## main training loop #############
 
-num_episodes = 1000 # set to 300+ for meaningful duration improvements
+num_episodes = 1000  # set to 300+ for meaningful duration improvements
 for i_episode in tqdm(range(num_episodes)):
     # Initialize the environment and state
     env.reset()
@@ -307,7 +303,6 @@ for i_episode in tqdm(range(num_episodes)):
         target_net.load_state_dict(policy_net.state_dict())
 
 
-
 def show_video(env_name):
     mp4list = glob.glob('video/*.mp4')
     if len(mp4list) > 0:
@@ -320,6 +315,7 @@ def show_video(env_name):
              </video>'''.format(encoded.decode('ascii'))))
     else:
         print("Could not find video")
+
 
 # play back a game of cartpole
 def show_video_of_model(env_name):
@@ -351,6 +347,7 @@ def show_video_of_model(env_name):
             break
     vid.close()
     env.close()
+
 
 show_video_of_model('CartPole-v1')
 # Below should play back the video
