@@ -1,4 +1,3 @@
-################ imports ##################
 import base64
 import glob
 import io
@@ -18,6 +17,7 @@ import torch.nn.functional as F
 import torch.optim as optim
 import torchvision.transforms as T
 from IPython.display import HTML
+from IPython import display
 from PIL import Image
 from gym.wrappers.monitoring import video_recorder
 from tqdm import tqdm
@@ -104,9 +104,6 @@ def get_cart_location(screen_width):
     world_width = env.x_threshold * 2
     scale = screen_width / world_width
     return int(env.state[0] * scale + screen_width / 2.0)  # MIDDLE OF CART
-
-
-# AttributeError: 'AtariEnv' object has no attribute 'x_threshold'
 
 
 def get_screen():
@@ -265,7 +262,7 @@ def optimize_model():
 
 ########## main training loop #############
 
-num_episodes = 1000  # set to 300+ for meaningful duration improvements
+num_episodes = 300  # set to 300+ for meaningful duration improvements
 for i_episode in tqdm(range(num_episodes)):
     # Initialize the environment and state
     env.reset()
@@ -330,7 +327,7 @@ def show_video_of_model(env_name):
         vid.capture_frame()
 
         with torch.no_grad():
-            action = policy_net(state).max(1)[1].view(1, 1)
+            action = target_net(state).max(1)[1].view(1, 1)
 
         _, reward, done, _ = env.step(action.item())
 
@@ -351,7 +348,7 @@ def show_video_of_model(env_name):
 
 show_video_of_model('CartPole-v1')
 # Below should play back the video
-# show_video('CartPole-v1')
+show_video('CartPole-v1')
 
 ###########################################
 
