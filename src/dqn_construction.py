@@ -3,6 +3,8 @@ import glob
 import io
 import math
 import os
+import pickle
+from datetime import datetime
 import random
 from collections import namedtuple, deque
 from itertools import count
@@ -21,6 +23,7 @@ from IPython import display
 from PIL import Image
 from gym.wrappers.monitoring import video_recorder
 from tqdm import tqdm
+from pathlib import Path
 
 os.environ["IMAGEIO_FFMPEG_EXE"] = "/opt/homebrew/bin/ffmpeg"
 
@@ -37,6 +40,9 @@ plt.ion()
 
 # if gpu is to be used
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+
+# get path of current file for saving videos and models
+current_file_path = os.path.dirname(os.path.realpath(__file__))
 
 ############# replay memory ###############
 
@@ -262,42 +268,52 @@ def optimize_model():
 
 ########## main training loop #############
 
-num_episodes = 300  # set to 300+ for meaningful duration improvements
-for i_episode in tqdm(range(num_episodes)):
-    # Initialize the environment and state
-    env.reset()
-    last_screen = get_screen()
-    current_screen = get_screen()
-    state = current_screen - last_screen
-    for t in count():
-        # Select and perform an action
-        action = select_action(state)
-        _, reward, done, _ = env.step(action.item())
-        reward = torch.tensor([reward], device=device)
-
-        # Observe new state
-        last_screen = current_screen
+if (__name__ == '__main__'):
+    num_episodes = 1  # set to 300+ for meaningful duration improvements
+    for i_episode in tqdm(range(num_episodes)):
+        # Initialize the environment and state
+        env.reset()
+        last_screen = get_screen()
         current_screen = get_screen()
-        if not done:
-            next_state = current_screen - last_screen
-        else:
-            next_state = None
+        state = current_screen - last_screen
+        for t in count():
+            # Select and perform an action
+            action = select_action(state)
+            _, reward, done, _ = env.step(action.item())
+            reward = torch.tensor([reward], device=device)
 
-        # Store the transition in memory
-        memory.push(state, action, next_state, reward)
+            # Observe new state
+            last_screen = current_screen
+            current_screen = get_screen()
+            if not done:
+                next_state = current_screen - last_screen
+            else:
+                next_state = None
 
-        # Move to the next state
-        state = next_state
+            # Store the transition in memory
+            memory.push(state, action, next_state, reward)
 
-        # Perform one step of the optimization (on the policy network)
-        optimize_model()
-        if done:
-            episode_durations.append(t + 1)
-            # plot_durations()
-            break
-    # Update the target network, copying all weights and biases in DQN
-    if i_episode % TARGET_UPDATE == 0:
-        target_net.load_state_dict(policy_net.state_dict())
+            # Move to the next state
+            state = next_state
+
+            # Perform one step of the optimization (on the policy network)
+            optimize_model()
+            if done:
+                episode_durations.append(t + 1)
+                # plot_durations()
+                break
+        # Update the target network, copying all weights and biases in DQN
+        if i_episode % TARGET_UPDATE == 0:
+            target_net.load_state_dict(policy_net.state_dict())
+
+    ########## saving model #############
+    out_dir = f"{current_file_path}/models/"
+    Path(out_dir).mkdir(parents=True, exist_ok=True)
+
+    attributes = f'{num_episodes}>{datetime.today().strftime("%d-%m--%H-%M")}'
+    out_name = f'target_net-{attributes}.pkl'
+    with open(f'{out_dir}{out_name}', 'wb') as outModel:
+        pickle.dump(target_net, outModel, pickle.HIGHEST_PROTOCOL)
 
 
 def show_video(env_name):
@@ -315,9 +331,12 @@ def show_video(env_name):
 
 
 # play back a game of cartpole
-def show_video_of_model(env_name):
+def show_video_of_model(env_name, input_model):
     env = gym.make(env_name)
-    vid = video_recorder.VideoRecorder(env, path="video/{}.mp4".format(env_name))
+    out_dir = f"{current_file_path}/video/"
+    Path(out_dir).mkdir(parents=True, exist_ok=True)
+
+    vid = video_recorder.VideoRecorder(env, path=f"{out_dir}{env_name}.mp4".format(env_name))
     env.reset()
     last_screen = get_screen()
     current_screen = get_screen()
@@ -327,7 +346,7 @@ def show_video_of_model(env_name):
         vid.capture_frame()
 
         with torch.no_grad():
-            action = target_net(state).max(1)[1].view(1, 1)
+            action = input_model(state).max(1)[1].view(1, 1)
 
         _, reward, done, _ = env.step(action.item())
 
@@ -346,9 +365,10 @@ def show_video_of_model(env_name):
     env.close()
 
 
-show_video_of_model('CartPole-v1')
-# Below should play back the video
-show_video('CartPole-v1')
+if (__name__ == '__main__'):
+    show_video_of_model('CartPole-v1', target_net)
+    # Below should play back the video
+    show_video('CartPole-v1')
 
 ###########################################
 
