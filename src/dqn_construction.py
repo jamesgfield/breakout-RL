@@ -367,7 +367,6 @@ def show_video_of_model(env_name, input_model):
 
 if (__name__ == '__main__'):
     show_video_of_model('CartPole-v1', target_net)
-    # Below should play back the video
     show_video('CartPole-v1')
 
 ###########################################
