@@ -29,6 +29,8 @@ os.environ["IMAGEIO_FFMPEG_EXE"] = "/opt/homebrew/bin/ffmpeg"
 
 ############## environment ################
 
+playbackOnly = True
+
 env = gym.make('CartPole-v1').unwrapped
 
 # set up matplotlib
@@ -269,51 +271,52 @@ def optimize_model():
 ########## main training loop #############
 
 if (__name__ == '__main__'):
-    num_episodes = 1  # set to 300+ for meaningful duration improvements
-    for i_episode in tqdm(range(num_episodes)):
-        # Initialize the environment and state
-        env.reset()
-        last_screen = get_screen()
-        current_screen = get_screen()
-        state = current_screen - last_screen
-        for t in count():
-            # Select and perform an action
-            action = select_action(state)
-            _, reward, done, _ = env.step(action.item())
-            reward = torch.tensor([reward], device=device)
-
-            # Observe new state
-            last_screen = current_screen
+    if(not playbackOnly):
+        num_episodes = 400  # set to 300+ for meaningful duration improvements
+        for i_episode in tqdm(range(num_episodes)):
+            # Initialize the environment and state
+            env.reset()
+            last_screen = get_screen()
             current_screen = get_screen()
-            if not done:
-                next_state = current_screen - last_screen
-            else:
-                next_state = None
+            state = current_screen - last_screen
+            for t in count():
+                # Select and perform an action
+                action = select_action(state)
+                _, reward, done, _ = env.step(action.item())
+                reward = torch.tensor([reward], device=device)
 
-            # Store the transition in memory
-            memory.push(state, action, next_state, reward)
+                # Observe new state
+                last_screen = current_screen
+                current_screen = get_screen()
+                if not done:
+                    next_state = current_screen - last_screen
+                else:
+                    next_state = None
 
-            # Move to the next state
-            state = next_state
+                # Store the transition in memory
+                memory.push(state, action, next_state, reward)
 
-            # Perform one step of the optimization (on the policy network)
-            optimize_model()
-            if done:
-                episode_durations.append(t + 1)
-                # plot_durations()
-                break
-        # Update the target network, copying all weights and biases in DQN
-        if i_episode % TARGET_UPDATE == 0:
-            target_net.load_state_dict(policy_net.state_dict())
+                # Move to the next state
+                state = next_state
 
-    ########## saving model #############
-    out_dir = f"{current_file_path}/models/"
-    Path(out_dir).mkdir(parents=True, exist_ok=True)
+                # Perform one step of the optimization (on the policy network)
+                optimize_model()
+                if done:
+                    episode_durations.append(t + 1)
+                    # plot_durations()
+                    break
+            # Update the target network, copying all weights and biases in DQN
+            if i_episode % TARGET_UPDATE == 0:
+                target_net.load_state_dict(policy_net.state_dict())
 
-    attributes = f'{num_episodes}>{datetime.today().strftime("%d-%m--%H-%M")}'
-    out_name = f'target_net-{attributes}.pkl'
-    with open(f'{out_dir}{out_name}', 'wb') as outModel:
-        pickle.dump(target_net, outModel, pickle.HIGHEST_PROTOCOL)
+        ########## saving model #############
+        out_dir = f"{current_file_path}/models/"
+        Path(out_dir).mkdir(parents=True, exist_ok=True)
+
+        attributes = f'{num_episodes}>{datetime.today().strftime("%d-%m--%H-%M")}'
+        out_name = f'target_net-{attributes}.pkl'
+        with open(f'{out_dir}{out_name}', 'wb') as outModel:
+            pickle.dump(target_net, outModel, pickle.HIGHEST_PROTOCOL)
 
 
 def show_video(env_name):
@@ -365,9 +368,15 @@ def show_video_of_model(env_name, input_model):
     env.close()
 
 
-if (__name__ == '__main__'):
-    show_video_of_model('CartPole-v1', target_net)
-    show_video('CartPole-v1')
+
+if(__name__ == '__main__'):
+    if(playbackOnly):
+        # read saved model
+        current_file_path = os.path.dirname(os.path.realpath(__file__))
+        filename = 'target_net-400>25-06--09-55.pkl'
+        with open(f'{current_file_path}/models/{filename}', 'rb') as inp:
+            target_net = pickle.load(inp)
+        show_video_of_model('CartPole-v1', target_net)
 
 ###########################################
 
